@@ -238,23 +238,23 @@ classdef bladeRF_MIMO_XCVR < handle
 
             obj.current_channel = channel;
 
-%             if obj.running
-%                 [status, ~] = calllib('libbladeRF', 'bladerf_enable_module', ...
-%                                       obj.bladerf.device, ...
-%                                       obj.current_channel, ...
-%                                       false);
-% 
-%                 bladeRF.check_status('bladerf_enable_module', status);
-% 
-% 
-%                 [status, ~] = calllib('libbladeRF', 'bladerf_enable_module', ...
-%                                       obj.bladerf.device, ...
-%                                       channel, ...
-%                                       true);
-% 
-%                 bladeRF.check_status('bladerf_enable_module', status);
-%             end
-
+            % Enable dynamic channel reconfiguration if the module is running
+            if obj.running
+                [status, ~] = calllib('libbladeRF', 'bladerf_enable_module', ...
+                                      obj.bladerf.device, ...
+                                      obj.current_channel, ...
+                                      false);
+    
+                bladeRF.check_status('bladerf_enable_module', status);
+    
+    
+                [status, ~] = calllib('libbladeRF', 'bladerf_enable_module', ...
+                                      obj.bladerf.device, ...
+                                      channel, ...
+                                      true);
+    
+                bladeRF.check_status('bladerf_enable_module', status);
+            end
         end
 
         % Reads the current active channel setting
@@ -262,29 +262,60 @@ classdef bladeRF_MIMO_XCVR < handle
             val = obj.current_channel;
         end
 
-        % Configures the universal gain
         function set.gain(obj, val)
-            % TODO: Check Gain assigment. Only the first value is being
-            % writen
-            assert(length(val) == 2, "Input must be a 2 element array. i.e. [60, 40]")
+            % Ensure the input is a 2-element array for MIMO channels
+            assert(length(val) == 2, "Input must be a 2-element array: [gain_ch1, gain_ch2]");
+            
+            % Process RX or TX channels based on the direction
+            for i = 1:2
+                % Determine the channel string
+                if strcmpi(obj.direction, 'RX')
+                    channel = sprintf('BLADERF_CHANNEL_RX%d', i);
+                elseif strcmpi(obj.direction, 'TX')
+                    channel = sprintf('BLADERF_CHANNEL_TX%d', i);
+                else
+                    error('Invalid direction specified. Use "RX" or "TX".');
+                end
                 
-            if strcmpi(obj.direction,'RX') == true && strcmpi(obj.agc,'manual') == 0
-                warning(['Cannot set ' obj.direction ' gain when AGC is in ' obj.agc ' mode'])
-            end
+                % Set gain for the specified channel
+                status = calllib('libbladeRF', 'bladerf_set_gain', obj.bladerf.device, bladeRF.str2ch(channel), val(i));
+                bladeRF.check_status('bladerf_set_gain', status);
 
+                % Read back and verify the gain
+                actual_gain = int32(0);
+                [status, ~, actual_gain] = calllib('libbladeRF', 'bladerf_get_gain', obj.bladerf.device, bladeRF.str2ch(channel), actual_gain);
+                bladeRF.check_status('bladerf_get_gain', status);
+                %fprintf('status=%d\n', status);
+
+                % Log the gain configuration
+                fprintf('Set %s%d Gain. Requested: %d, Actual: %d\n', obj.direction, i, val(i), actual_gain);
+            end
+        end
+
+        % OLD VERION FROM Jose Amadaro "User Equipment...."
+        % Configures the universal gain
+%        function set.gain(obj, val)
+%            % TODO: Check Gain assigment. Only the first value is being
+%            % writen
+%            assert(length(val) == 2, "Input must be a 2 element array. i.e. [60, 40]")
+%                
+%            if strcmpi(obj.direction,'RX') == true && strcmpi(obj.agc,'manual') == 0
+%                warning(['Cannot set ' obj.direction ' gain when AGC is in ' obj.agc ' mode'])
+%            end
+%
 %             if strcmpi(obj.direction,'RX') == true
 %                 ch = 'BLADERF_CHANNEL_RX1';
 %             else
 %                 ch = 'BLADERF_CHANNEL_TX1';
 %             end
-            for i = 1:2
-                [status, ~] = calllib('libbladeRF', 'bladerf_set_gain', obj.bladerf.device, obj.channel{i}, val(i));
-                bladeRF.check_status('bladerf_set_gain', status);
-            end
-            
-            fprintf('Set %s%d bandwidth. Requested: [%d, %d], Actual: [%d, %d]\n', ...
-                    obj.direction, i, val, obj.gain)
-        end
+%            for i = 1:2
+%                [status, ~] = calllib('libbladeRF', 'bladerf_set_gain', obj.bladerf.device, obj.channel{i}, val(i));
+%                bladeRF.check_status('bladerf_set_gain', status);
+%            end
+%            
+%            fprintf('Set %s%d Gain. Requested: [%d, %d], Actual: [%d, %d]\n', ...
+%                    obj.direction, i, val, obj.gain)
+%        end
 
         % Reads the current universal gain configuration
         function vals = get.gain(obj)
@@ -303,7 +334,7 @@ classdef bladeRF_MIMO_XCVR < handle
                 bladeRF.check_status('bladerf_get_gain', status);
                 vals(i) = val;
             end
-            %fprintf('Read %s gain: %d\n', obj.direction, val);
+            fprintf('Read %s gain: %d\n', obj.direction, val);
         end
 
         % Configures the gain of VGA1
@@ -577,9 +608,9 @@ classdef bladeRF_MIMO_XCVR < handle
             % Setup defaults
             fprintf('Initializing %s with default parameters\n', obj.direction)
             obj.config = bladeRF_StreamConfig;
-            obj.samplerate = 1e6;
-            obj.frequency = 890e6;
-            obj.bandwidth = 1e6;
+            obj.samplerate = 2e6;
+            obj.frequency = 2.45e9;
+            obj.bandwidth = 50e6;
 
             freqrange = libstruct('bladerf_range');
 
@@ -597,7 +628,8 @@ classdef bladeRF_MIMO_XCVR < handle
 
             if strcmpi(dir,'RX') == true
                 for i = 1:2
-                    status = calllib('libbladeRF', 'bladerf_set_gain_mode', obj.bladerf.device, obj.module{i}, 'BLADERF_GAIN_DEFAULT');
+                    %status = calllib('libbladeRF', 'bladerf_set_gain_mode', obj.bladerf.device, obj.module{i}, 'BLADERF_GAIN_DEFAULT'); % Trying to fix RX gain assignment
+                    status = calllib('libbladeRF', 'bladerf_set_gain_mode', obj.bladerf.device, obj.module{i}, 'BLADERF_GAIN_MGC'); % Original Assignment
                     if status == -8
                         if obj.bladerf.info.gen == 1
                             disp('Cannot enable AGC. AGC DC LUT file is missing, run `cal table agc rx'' in bladeRF-cli.')
@@ -616,7 +648,8 @@ classdef bladeRF_MIMO_XCVR < handle
                 if strcmpi(dir, 'RX') == true
                     obj.vga1 = 30;
                     obj.vga2 = 0;
-                    obj.lna = 'MAX';
+                    %obj.lna = 'MAX'; % Trying to fix RX gain assignment
+                    obj.lna ='BYPASS'; % Original assignment
                 else
                     obj.vga1 = -8;
                     obj.vga2 = 16;
