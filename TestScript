@@ -1,0 +1,67 @@
+clear all
+close all
+clc
+
+%% Initialize bladeRF Device for 2 TX and 2 RX Channels (MIMO)
+
+Fs = 1e6; % Sample Frequency works down to 1.2 MHz but most accurate at 2 MHz (lower sampling saves memory)
+frequencyStart = 2.425e9; % Frequency at beginning of chirp
+frequencyEnd = 2.475e9; % Frequency at end of chirp
+BW = (frequencyEnd - frequencyStart); % Bandwidth of 50 Mhz allows extraction of beat frequency
+%BW = Fs/2; % Lowering BW fulfills Nyquist Shannon Theorem
+fo = (frequencyStart + frequencyEnd)/2; % Center Frequency
+
+try 
+    % Create a bladeRF device handle. Use the serial number if needed (e.g., '*:serial=43b').
+    device = bladeRF_MIMO('*:serial=608');
+    
+    % Print device information
+    disp('Device initialized successfully.');
+    fprintf('Device Serial: %s\n', device.info.serial);
+    fprintf('FPGA Size: %s\n', device.info.fpga_size);
+    fprintf('USB Speed: %s\n', device.info.usb_speed);
+    
+    % Configure TX and RX Channels
+    device.tx.channel = 'TX'; % Enable TX1 and TX2
+    device.rx.channel = 'RX'; % Enable RX1 and RX2
+    fprintf('Active TX Channels: %s\n', strjoin(device.tx.channel, ', '));
+    fprintf('Active RX Channels: %s\n', strjoin(device.rx.channel, ', '));
+
+    % Initialize PA and LNA
+    %device.misc.attachExpansion('xb100'); % BT100 for TX PA
+    %device.misc.attachExpansion('xb200'); % BT200 for RX LNA
+
+    device.loopback = 'NONE'; % Set loopback mode (NONE, FIRMWARE, RFIC_BIST)
+
+    %%%%%%%%%%%% The RX gain requires all channels to be formatted like this %%%%%%%%%%%%  
+    % RX Configuration
+    device.rx.frequency = fo;  % Center frequency
+    device.rx.samplerate = Fs;   % Sample rate
+    device.rx.bandwidth = BW;     % Bandwidth
+    device.rx.agc = 'manual';
+    device.rx.gain = [15, 15];     % Gain for both channels
+
+    % TX Configuration
+    device.tx.frequency = fo;  % Center frequency
+    device.tx.samplerate = Fs;   % Sample rate
+    device.tx.bandwidth = BW;     % Bandwidth
+    device.tx.gain = [20, 20];     % Gain for both channels
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    % Print RX and TX configuration
+    fprintf('Default TX Gain: [%d, %d]\n', device.tx.gain(1), device.tx.gain(2));
+    fprintf('Default RX Gain: [%d, %d]\n', device.rx.gain(1), device.rx.gain(2));
+
+    % Print RX and TX configuration
+    fprintf('RX Config: Freq=%.2f GHz, Rate=%.2f MSps, BW=%.2f MHz, Gain=[%d,%d]\n', ...
+        device.rx.frequency / 1e9, device.rx.samplerate / 1e6, device.rx.bandwidth / 1e6, ...
+        device.rx.gain(1), device.rx.gain(2));
+    fprintf('TX Config: Freq=%.2f GHz, Rate=%.2f MSps, BW=%.2f MHz, Gain=[%d,%d]\n', ...
+        device.tx.frequency / 1e9, device.tx.samplerate / 1e6, device.tx.bandwidth / 1e6, ...
+        device.tx.gain(1), device.tx.gain(2));
+catch ME
+    disp('Error during device initialization:');
+    disp(getReport(ME, 'extended'));
+    %disp(ME.message);
+    return;
+end
