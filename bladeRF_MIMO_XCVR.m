@@ -292,31 +292,6 @@ classdef bladeRF_MIMO_XCVR < handle
             end
         end
 
-        % OLD VERION FROM Jose Amadaro "User Equipment...."
-        % Configures the universal gain
-%        function set.gain(obj, val)
-%            % TODO: Check Gain assigment. Only the first value is being
-%            % writen
-%            assert(length(val) == 2, "Input must be a 2 element array. i.e. [60, 40]")
-%                
-%            if strcmpi(obj.direction,'RX') == true && strcmpi(obj.agc,'manual') == 0
-%                warning(['Cannot set ' obj.direction ' gain when AGC is in ' obj.agc ' mode'])
-%            end
-%
-%             if strcmpi(obj.direction,'RX') == true
-%                 ch = 'BLADERF_CHANNEL_RX1';
-%             else
-%                 ch = 'BLADERF_CHANNEL_TX1';
-%             end
-%            for i = 1:2
-%                [status, ~] = calllib('libbladeRF', 'bladerf_set_gain', obj.bladerf.device, obj.channel{i}, val(i));
-%                bladeRF.check_status('bladerf_set_gain', status);
-%            end
-%            
-%            fprintf('Set %s%d Gain. Requested: [%d, %d], Actual: [%d, %d]\n', ...
-%                    obj.direction, i, val, obj.gain)
-%        end
-
         % Reads the current universal gain configuration
         function vals = get.gain(obj)
             val = int32(0);
@@ -608,9 +583,9 @@ classdef bladeRF_MIMO_XCVR < handle
             % Setup defaults
             fprintf('Initializing %s with default parameters\n', obj.direction)
             obj.config = bladeRF_StreamConfig;
-            obj.samplerate = 2e6;
-            obj.frequency = 2.45e9;
-            obj.bandwidth = 50e6;
+            obj.samplerate = 1e6;
+            obj.frequency = 890e6;
+            obj.bandwidth = 1e6;
 
             freqrange = libstruct('bladerf_range');
 
@@ -628,8 +603,7 @@ classdef bladeRF_MIMO_XCVR < handle
 
             if strcmpi(dir,'RX') == true
                 for i = 1:2
-                    %status = calllib('libbladeRF', 'bladerf_set_gain_mode', obj.bladerf.device, obj.module{i}, 'BLADERF_GAIN_DEFAULT'); % Trying to fix RX gain assignment
-                    status = calllib('libbladeRF', 'bladerf_set_gain_mode', obj.bladerf.device, obj.module{i}, 'BLADERF_GAIN_MGC'); % Original Assignment
+                    status = calllib('libbladeRF', 'bladerf_set_gain_mode', obj.bladerf.device, obj.module{i}, 'BLADERF_GAIN_MGC'); % Manual Gain Control (for Default AGC use BLADERF_GAIN_DEFAULT)
                     if status == -8
                         if obj.bladerf.info.gen == 1
                             disp('Cannot enable AGC. AGC DC LUT file is missing, run `cal table agc rx'' in bladeRF-cli.')
@@ -648,8 +622,7 @@ classdef bladeRF_MIMO_XCVR < handle
                 if strcmpi(dir, 'RX') == true
                     obj.vga1 = 30;
                     obj.vga2 = 0;
-                    %obj.lna = 'MAX'; % Trying to fix RX gain assignment
-                    obj.lna ='BYPASS'; % Original assignment
+                    obj.lna = 'MAX'; % What purpose does setting this to BYPASS have? Can RX gain be set manually with lna set to MAX?
                 else
                     obj.vga1 = -8;
                     obj.vga2 = 16;
