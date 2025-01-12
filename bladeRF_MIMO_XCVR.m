@@ -622,7 +622,7 @@ classdef bladeRF_MIMO_XCVR < handle
                 if strcmpi(dir, 'RX') == true
                     obj.vga1 = 30;
                     obj.vga2 = 0;
-                    obj.lna = 'MAX'; % What purpose does setting this to BYPASS have? Can RX gain be set manually with lna set to MAX?
+                    obj.lna = 'MAX'; 
                 else
                     obj.vga1 = -8;
                     obj.vga2 = 16;
