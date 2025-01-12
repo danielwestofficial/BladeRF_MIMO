@@ -9,7 +9,6 @@ Fs = 1e6; % Sample Frequency works down to 1.2 MHz but most accurate at 2 MHz (l
 frequencyStart = 2.425e9; % Frequency at beginning of chirp
 frequencyEnd = 2.475e9; % Frequency at end of chirp
 BW = (frequencyEnd - frequencyStart); % Bandwidth of 50 Mhz allows extraction of beat frequency
-%BW = Fs/2; % Lowering BW fulfills Nyquist Shannon Theorem
 fo = (frequencyStart + frequencyEnd)/2; % Center Frequency
 tau = 1e-3; % Sweep time of a single chirp
 u = (frequencyEnd-frequencyStart)/tau; % instantaneous slope
@@ -18,16 +17,13 @@ phi = 0; % Phase offset (used for innacuracies in phase between channels)
 w = 2*pi*frequencyStart; % omega (normalized frequency)
 
 %% Step 2: Generate Waveform
-% This section provides the time vectors, instantaneous phase, and complex
-% chirp signal. 
+% This section provides the time vectors, instantaneous phase, and complex chirp signal. 
 
 % Sample Sizes
-%NUM_SECONDS = 0.1;               % Duration in seconds
 num_samples = 1024;               % Number of samples to receive per buffer
 
 % Time vectors
 tTX = (0:1/num_samples:1-1/num_samples); % Time vector
-%tTX = 0 : (1/Fs) : (NUM_SECONDS - 1/Fs); % Time vector for all samples
 
 % Time vector for single chirp
 tTXchirp = 0:1/Fs:tau-1/Fs;  
@@ -41,7 +37,6 @@ thetaTX = thetaTX(1:length(tTX)); % Truncate to match tTX
 
 % Generate complex chirp
 st = A * exp(1i * (w*tTXchirp + thetaTX + phi)); % Complex chirp
-
 
 %% Step 3: Initialize bladeRF Device for 2 TX and 2 RX Channels (MIMO)
 
@@ -168,14 +163,7 @@ end
 device.tx.stop();
 device.rx.stop();
 
-% Save Receive Signal as a SC16 Q11 File
-%save_sc16q11('C:\Users\danie\OneDrive\Documents\OIT(FALL.2024)\ENGR596\Week10\HardwareInitialize(bladeRF_MIMOrev1)\tmp\sri.sc16q11', sri)
-
-
 %% Step 5: Verify and Plot Received Data
-
-% Load the samples
-%sri = load_sc16q11('sri.sc16q11');
 
 % Check if the received data is valid
 if all(sri(:) == 0)
@@ -183,8 +171,6 @@ if all(sri(:) == 0)
 end
 
 % Create a corrected time vector
-%tTX = (0 : (length(sti) - 1)) / Fs;
-%tRX = (0 : (length(sri) - 1)) / Fs;
 tTX = (0 : size(sti, 1) - 1) / Fs;
 tRX = (0 : size(sri, 1) - 1) / Fs;
 
